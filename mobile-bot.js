@@ -69,9 +69,12 @@ const commandName = args.shift().toLowerCase();
 const command = commands.get(commandName);
 
 if (command) {
+  console.log("COMMAND DETECTED:", commandName);
+
   await command.execute(senderId, args, process.env.PAGE_ACCESS_TOKEN);
-  return; // stop normal reply
-  }
+
+  return; // 🚨 VERY IMPORTANT (stops AI)
+}
   
   await sendAPI(senderId, { sender_action: "typing_on" });
   
