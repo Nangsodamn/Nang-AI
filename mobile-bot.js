@@ -62,6 +62,16 @@ app.post('/webhook', async (req, res) => {
 
 async function handleMessage(senderId, text) {
   console.log(`📩 ${senderId}: ${text}`);
+  // ===== COMMAND SYSTEM =====
+const args = text.trim().split(/\s+/);
+const commandName = args.shift().toLowerCase();
+
+const command = commands.get(commandName);
+
+if (command) {
+  await command.execute(senderId, args, process.env.PAGE_ACCESS_TOKEN);
+  return; // stop normal reply
+  }
   
   await sendAPI(senderId, { sender_action: "typing_on" });
   
