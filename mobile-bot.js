@@ -62,6 +62,19 @@ app.post('/webhook', async (req, res) => {
 
 async function handleMessage(senderId, text) {
   console.log(`📩 ${senderId}: ${text}`);
+
+  // ===== DEBUG =====
+console.log("RAW TEXT:", text);
+
+const args = text.trim().split(/\s+/);
+const commandName = args.shift().toLowerCase();
+
+console.log("COMMAND NAME:", commandName);
+
+const command = commands.get(commandName);
+
+console.log("COMMAND FOUND:", command);
+  
   // ===== COMMAND SYSTEM =====
 const args = text.trim().split(/\s+/);
 const commandName = args.shift().toLowerCase();
@@ -69,11 +82,11 @@ const commandName = args.shift().toLowerCase();
 const command = commands.get(commandName);
 
 if (command) {
-  console.log("COMMAND DETECTED:", commandName);
+  console.log("✅ COMMAND EXECUTING:", commandName);
 
   await command.execute(senderId, args, process.env.PAGE_ACCESS_TOKEN);
 
-  return; // 🚨 VERY IMPORTANT (stops AI)
+  return;
 }
   
   await sendAPI(senderId, { sender_action: "typing_on" });
