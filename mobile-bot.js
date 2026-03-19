@@ -1,5 +1,15 @@
 // Lightweight Messenger Bot for Mobile/Termux
 const express = require('express');
+const fs = require("fs");
+
+// ===== COMMAND LOADER =====
+const commands = new Map();
+const commandFiles = fs.readdirSync("./commands").filter(f => f.endsWith(".js"));
+
+for (const file of commandFiles) {
+  const cmd = require(`./commands/${file}`);
+  commands.set(cmd.name, cmd);
+}
 const axios = require('axios');
 require('dotenv').config();
 
