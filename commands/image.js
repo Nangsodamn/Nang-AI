@@ -1,3 +1,5 @@
+const axios = require("axios");
+const FormData = require("form-data");
 const { sendMessage } = require("../handles/sendMessage");
 
 module.exports = {
@@ -10,6 +12,7 @@ module.exports = {
 
     const prompt = args.join(" ");
 
+    // ❌ no prompt
     if (!prompt) {
       return sendMessage(senderId, {
         text: "⚠️ Example:\nimg cute cat astronaut"
@@ -18,26 +21,48 @@ module.exports = {
 
     try {
 
-      // ✅ send loading message
+      // ✅ loading message
       await sendMessage(senderId, {
         text: "🎨 Generating image..."
       }, pageAccessToken);
 
+      // ✅ create image URL
       const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
 
-      // ✅ send image
-      await sendMessage(senderId, {
+      // ✅ download image as buffer (IMPORTANT FIX)
+      const response = await axios.get(imageUrl, {
+        responseType: "arraybuffer"
+      });
+
+      // ✅ create form data
+      const form = new FormData();
+
+      form.append("recipient", JSON.stringify({ id: senderId }));
+
+      form.append("message", JSON.stringify({
         attachment: {
           type: "image",
-          payload: {
-            url: imageUrl,
-            is_reusable: true
-          }
+          payload: {}
         }
-      }, pageAccessToken);
+      }));
+
+      // ✅ attach image file
+      form.append("filedata", Buffer.from(response.data), {
+        filename: "image.jpg"
+      });
+
+      // ✅ send to Facebook
+      await axios.post(
+        `https://graph.facebook.com/v18.0/me/messages?access_token=${pageAccessToken}`,
+        form,
+        {
+          headers: form.getHeaders()
+        }
+      );
 
     } catch (err) {
-      console.error("❌ Image Error:", err.message);
+
+      console.error("❌ Image Error:", err.response?.data || err.message);
 
       return sendMessage(senderId, {
         text: "❌ Failed to generate image."
