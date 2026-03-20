@@ -218,7 +218,7 @@ module.exports = {
 • ghz on 🟢
 • ghz off 🔴
 • ghz fav add Carrot 🥕 or ghz fav Watering Can 💧
-• ghz fav remove Carrot` 🧺
+• ghz fav remove Carrot 🧺` 
       }, pageAccessToken);
     }
 
