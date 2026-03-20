@@ -49,6 +49,10 @@ function ensureWebSocketConnection() {
   });
 
   sharedWebSocket.on("message", async (data) => {
+    
+    console.log("📥 RAW DATA RECEIVED:");
+  console.log(data.toString());
+    
     try {
       const payload = JSON.parse(data.toString());
 
@@ -209,12 +213,12 @@ module.exports = {
     if (subcmd !== "on") {
       return sendMessage(senderId, {
         text:
-`📌 Garden Horizon Commands
+`📌 𝑵𝒂𝒏𝒈 𝑨𝑰 Garden Horizon Commands. 🔥💥
 
-• ghz on
-• ghz off
-• ghz fav add Carrot | Watering Can
-• ghz fav remove Carrot`
+• ghz on 🟢
+• ghz off 🔴
+• ghz fav add Carrot 🥕 or ghz fav Watering Can 💧
+• ghz fav remove Carrot` 🧺
       }, pageAccessToken);
     }
 
@@ -228,7 +232,7 @@ module.exports = {
     activeSessions.set(senderId, { pageAccessToken });
 
     await sendMessage(senderId, {
-      text: "✅ Garden Horizon tracking started!"
+      text: "✅ 𝑵𝒂𝒏𝒈 𝑨𝑰 Garden Horizon tracking started! ☘️🌟"
     }, pageAccessToken);
 
     ensureWebSocketConnection();
