@@ -10,7 +10,7 @@ async function sendMessage(senderId, message, pageAccessToken) {
       }
     );
   } catch (err) {
-    console.log("Error:", err.response?.data || err.message);
+    console.log("❌ FB Error:", err.response?.data || err.message);
   }
 }
 
