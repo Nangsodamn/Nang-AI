@@ -15,7 +15,7 @@ function formatValue(val) {
 }
 
 function getPHTime() {
-  return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+  return new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
 }
 
 function cleanText(text) {
@@ -30,28 +30,27 @@ function formatItems(items) {
 }
 
 function ensureWebSocketConnection() {
-
+  // ✅ Prevent duplicate connection
   if (sharedWebSocket && sharedWebSocket.readyState === WebSocket.OPEN) return;
 
   sharedWebSocket = new WebSocket("wss://gagstock.gleeze.com/ghz");
 
   sharedWebSocket.on("open", () => {
+    console.log("✅ GHZ WebSocket Connected");
+
+    // ✅ Clear old interval before creating new
+    if (keepAliveInterval) clearInterval(keepAliveInterval);
 
     keepAliveInterval = setInterval(() => {
-
       if (sharedWebSocket.readyState === WebSocket.OPEN) {
         sharedWebSocket.send("ping");
       }
-
     }, 10000);
-
   });
 
   sharedWebSocket.on("message", async (data) => {
-
     try {
-
-      const payload = JSON.parse(data);
+      const payload = JSON.parse(data.toString());
 
       if (!payload) return;
 
@@ -67,9 +66,7 @@ function ensureWebSocketConnection() {
         let matchCount = 0;
 
         function checkItems(label, items) {
-
           const available = items.filter(i => i.quantity > 0);
-
           if (available.length === 0) return false;
 
           const matched = favList.length > 0
@@ -79,11 +76,9 @@ function ensureWebSocketConnection() {
           if (favList.length > 0 && matched.length === 0) return false;
 
           matchCount += matched.length;
-
           sections.push(`${label}:\n${formatItems(matched)}`);
 
           return true;
-
         }
 
         checkItems("🌱 𝗦𝗲𝗲𝗱𝘀", seeds);
@@ -99,7 +94,7 @@ function ensureWebSocketConnection() {
 🕒 End: ${weather.endTime}`
           : "";
 
-        const updatedAt = payload.lastUpdated || getPHTime().toLocaleString("en-PH");
+        const updatedAt = payload.lastUpdated || getPHTime();
 
         const title = favList.length > 0
           ? `❤️ ${matchCount} 𝗙𝗮𝘃𝗼𝗿𝗶𝘁𝗲 𝗜𝘁𝗲𝗺${matchCount > 1 ? "s" : ""} 𝗙𝗼𝘂𝗻𝗱!`
@@ -109,6 +104,7 @@ function ensureWebSocketConnection() {
 
         const lastSent = lastSentCache.get(senderId);
 
+        // ✅ prevent duplicate spam
         if (lastSent === messageKey) continue;
 
         lastSentCache.set(senderId, messageKey);
@@ -122,26 +118,32 @@ ${weatherInfo}
 
 📅 Updated: ${updatedAt}`
         }, session.pageAccessToken);
-
       }
 
-    } catch {}
-
+    } catch (err) {
+      // ✅ SHOW ERROR (important fix)
+      console.error("❌ GHZ Parse Error:", err.message);
+    }
   });
 
   sharedWebSocket.on("close", () => {
+    console.log("⚠️ GHZ WebSocket Closed");
 
-    clearInterval(keepAliveInterval);
+    if (keepAliveInterval) clearInterval(keepAliveInterval);
+
     sharedWebSocket = null;
 
-    setTimeout(ensureWebSocketConnection, 3000);
-
+    // ✅ reconnect safely
+    setTimeout(() => {
+      console.log("🔄 Reconnecting GHZ...");
+      ensureWebSocketConnection();
+    }, 3000);
   });
 
-  sharedWebSocket.on("error", () => {
+  sharedWebSocket.on("error", (err) => {
+    console.error("❌ GHZ WebSocket Error:", err.message);
     sharedWebSocket?.close();
   });
-
 }
 
 module.exports = {
@@ -172,14 +174,11 @@ module.exports = {
       }
 
       const currentFav = favoriteMap.get(senderId) || [];
-
       const updated = new Set(currentFav);
 
       for (const name of input) {
-
         if (action === "add") updated.add(name);
         else updated.delete(name);
-
       }
 
       favoriteMap.set(senderId, Array.from(updated));
@@ -187,7 +186,6 @@ module.exports = {
       return sendMessage(senderId, {
         text: `✅ Favorite list updated:\n${Array.from(updated).join(", ") || "(empty)"}`
       }, pageAccessToken);
-
     }
 
     if (subcmd === "off") {
@@ -206,11 +204,9 @@ module.exports = {
         { text: "🛑 Garden Horizon tracking stopped." },
         pageAccessToken
       );
-
     }
 
     if (subcmd !== "on") {
-
       return sendMessage(senderId, {
         text:
 `📌 Garden Horizon Commands
@@ -220,16 +216,13 @@ module.exports = {
 • ghz fav add Carrot | Watering Can
 • ghz fav remove Carrot`
       }, pageAccessToken);
-
     }
 
     if (activeSessions.has(senderId)) {
-
       return sendMessage(senderId,
         { text: "📡 You're already tracking Garden Horizon.\nUse ghz off to stop." },
         pageAccessToken
       );
-
     }
 
     activeSessions.set(senderId, { pageAccessToken });
@@ -239,5 +232,5 @@ module.exports = {
     }, pageAccessToken);
 
     ensureWebSocketConnection();
-
   }
+};
