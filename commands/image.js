@@ -12,29 +12,34 @@ module.exports = {
 
     const prompt = args.join(" ");
 
-    // ❌ no prompt
     if (!prompt) {
       return sendMessage(senderId, {
-        text: "⚠️ Example:\nimg cute cat astronaut"
+        text: "⚠️ Example:\nimg cute frog"
       }, pageAccessToken);
     }
 
     try {
 
-      // ✅ loading message
       await sendMessage(senderId, {
         text: "🎨 Generating image..."
       }, pageAccessToken);
 
-      // ✅ create image URL
-      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
+      // ✅ NEW (more stable API)
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Date.now()}`;
 
-      // ✅ download image as buffer (IMPORTANT FIX)
-      const response = await axios.get(imageUrl, {
-        responseType: "arraybuffer"
+      console.log("🖼️ Image URL:", imageUrl);
+
+      // ✅ download image (buffer)
+      const response = await axios({
+        url: imageUrl,
+        method: "GET",
+        responseType: "arraybuffer",
+        timeout: 20000 // prevent hanging
       });
 
-      // ✅ create form data
+      // ❌ if no data
+      if (!response.data) throw new Error("No image data");
+
       const form = new FormData();
 
       form.append("recipient", JSON.stringify({ id: senderId }));
@@ -46,9 +51,9 @@ module.exports = {
         }
       }));
 
-      // ✅ attach image file
       form.append("filedata", Buffer.from(response.data), {
-        filename: "image.jpg"
+        filename: "image.jpg",
+        contentType: "image/jpeg"
       });
 
       // ✅ send to Facebook
@@ -56,16 +61,19 @@ module.exports = {
         `https://graph.facebook.com/v18.0/me/messages?access_token=${pageAccessToken}`,
         form,
         {
-          headers: form.getHeaders()
+          headers: form.getHeaders(),
+          timeout: 20000
         }
       );
 
+      console.log("✅ Image sent!");
+
     } catch (err) {
 
-      console.error("❌ Image Error:", err.response?.data || err.message);
+      console.error("❌ FULL ERROR:", err.response?.data || err.message);
 
       return sendMessage(senderId, {
-        text: "❌ Failed to generate image."
+        text: "❌ Failed to generate image.\n(Check logs bro)"
       }, pageAccessToken);
     }
   }
