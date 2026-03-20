@@ -74,12 +74,6 @@ console.log("COMMAND NAME:", commandName);
 const command = commands.get(commandName);
 
 console.log("COMMAND FOUND:", command);
-  
-  // ===== COMMAND SYSTEM =====
-const args = text.trim().split(/\s+/);
-const commandName = args.shift().toLowerCase();
-
-const command = commands.get(commandName);
 
 if (command) {
   console.log("✅ COMMAND EXECUTING:", commandName);
