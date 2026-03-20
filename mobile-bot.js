@@ -47,42 +47,41 @@ app.post("/webhook", async (req, res) => {
           if (event.message && event.message.text) {
 
             const text = event.message.text.trim();
-
             console.log("📩 Received:", text);
 
-            // ============================
-            // 🔹 COMMAND HANDLER
-            // ============================
-
-            // 👉 IMG COMMAND
+            // ✅ IMG COMMAND
             if (text.startsWith("img")) {
               const args = text.split(" ").slice(1);
-              return imageCmd.execute(senderId, args, pageAccessToken);
+              await require("./commands/image").execute(senderId, args, pageAccessToken);
             }
 
-            // 👉 GHZ COMMAND
-            if (text.startsWith("ghz")) {
+            // ✅ GHZ COMMAND
+            else if (text.startsWith("ghz")) {
               const args = text.split(" ").slice(1);
-              return ghzCmd.execute(senderId, args, pageAccessToken);
+              await require("./commands/ghz").execute(senderId, args, pageAccessToken);
             }
 
-            // ============================
-            // 🔹 DEFAULT REPLY
-            // ============================
-            const { sendMessage } = require("./handles/sendMessage");
+            // ✅ DEFAULT
+            else {
+              const { sendMessage } = require("./handles/sendMessage");
 
-            return sendMessage(senderId, {
-              text: "🤖 I didn't understand that.\nTry:\n• img frog\n• ghz on"
-            }, pageAccessToken);
+              await sendMessage(senderId, {
+                text: "🤖 Try:\n• img frog\n• ghz on"
+              }, pageAccessToken);
+            }
+
           }
+
         }
       }
 
-      res.sendStatus(200);
     }
 
+    // ✅ VERY IMPORTANT (DO NOT REMOVE)
+    res.sendStatus(200);
+
   } catch (err) {
-    console.error("❌ Webhook Error:", err.message);
+    console.error("❌ Webhook Error:", err);
     res.sendStatus(500);
   }
 });
