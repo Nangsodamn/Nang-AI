@@ -10,7 +10,6 @@ module.exports = {
 
     const prompt = args.join(" ");
 
-    // ❌ if no prompt
     if (!prompt) {
       return sendMessage(senderId, {
         text: "⚠️ Example:\nimg cute cat astronaut"
@@ -19,10 +18,14 @@ module.exports = {
 
     try {
 
-      // ✅ Generate image URL (FREE API)
+      // ✅ send loading message
+      await sendMessage(senderId, {
+        text: "🎨 Generating image..."
+      }, pageAccessToken);
+
       const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
 
-      // 📤 Send image to Facebook
+      // ✅ send image
       await sendMessage(senderId, {
         attachment: {
           type: "image",
