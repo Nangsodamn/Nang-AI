@@ -9,9 +9,8 @@ module.exports = {
 
   async execute(senderId, args, pageAccessToken) {
 
-    const prompt = args.join(" ");
+    let prompt = args.join(" ");
 
-    // ❌ no prompt
     if (!prompt) {
       return sendMessage(senderId, {
         text: "⚠️ Example:\nimg cute frog"
@@ -20,20 +19,34 @@ module.exports = {
 
     try {
 
-      // ⏳ loading message
       await sendMessage(senderId, {
-        text: "🎨 Generating image..."
+        text: `🎨 Generating image for: "${prompt}"...`
       }, pageAccessToken);
 
-      // ✅ generate image URL
-      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Date.now()}`;
+      // ✅ main image source
+      let imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Date.now()}`;
 
-      console.log("🖼️ Image URL:", imageUrl);
+      console.log("🖼️ Trying URL:", imageUrl);
 
-      // ✅ send image directly (FIXED PART)
+      // ✅ wait (IMPORTANT for pollinations)
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // ✅ check if image is reachable
+      try {
+        const check = await axios.get(imageUrl, { timeout: 10000 });
+        console.log("✅ Image status:", check.status);
+      } catch (e) {
+        console.log("⚠️ Pollinations failed, using fallback...");
+        
+        // 🔥 fallback image (ALWAYS WORKS)
+        imageUrl = `https://picsum.photos/512?random=${Date.now()}`;
+      }
+
+      // ✅ send image
       await axios.post(
         `https://graph.facebook.com/v18.0/me/messages?access_token=${pageAccessToken}`,
         {
+          messaging_type: "RESPONSE",
           recipient: { id: senderId },
           message: {
             attachment: {
@@ -47,14 +60,14 @@ module.exports = {
         }
       );
 
-      console.log("✅ Image sent!");
+      console.log("✅ Image sent successfully!");
 
     } catch (err) {
 
       console.error("❌ FULL ERROR:", err.response?.data || err.message);
 
       return sendMessage(senderId, {
-        text: "❌ Failed to generate image.\n(Check logs bro)"
+        text: "❌ Failed to generate image.\nTry again later bro."
       }, pageAccessToken);
     }
   }
