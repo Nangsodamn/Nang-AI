@@ -1,79 +1,94 @@
 const axios = require("axios");
-const { sendMessage } = require("../handles/sendMessage");
+const FormData = require("form-data");
 
 module.exports = {
   name: "img",
-  description: "Generate AI image",
-  usage: "img <prompt>",
-  category: "AI 🤖",
 
   async execute(senderId, args, pageAccessToken) {
 
     const prompt = args.join(" ");
 
     if (!prompt) {
-      return sendMessage(senderId, {
-        text: "⚠️ Example:\nimg cute dog"
-      }, pageAccessToken);
+      return;
     }
 
     try {
 
-      // ✅ Step 1: Loading message
-      await sendMessage(senderId, {
-        text: `🎨 Generating image for: "${prompt}"...`
-      }, pageAccessToken);
+      // ✅ Step 1: generate AI image URL
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Date.now()}`;
 
-      // ✅ Step 2: Create AI URL
-      const aiUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Date.now()}`;
+      console.log("🖼️ Fetching:", imageUrl);
 
-      console.log("🖼️ AI URL:", aiUrl);
+      // ✅ Step 2: download image buffer
+      const response = await axios.get(imageUrl, {
+        responseType: "arraybuffer",
+        timeout: 15000
+      });
 
-      // ✅ Step 3: WAIT (very important)
-      await new Promise(r => setTimeout(r, 7000));
+      const imageBuffer = Buffer.from(response.data);
 
-      // ✅ Step 4: CHECK if image is reachable
-      let isWorking = false;
+      // ✅ Step 3: send via upload (NOT URL)
+      const form = new FormData();
 
-      try {
-        await axios.get(aiUrl, { timeout: 5000 });
-        isWorking = true;
-        console.log("✅ AI image is reachable");
-      } catch {
-        console.log("❌ AI image not ready");
-      }
+      form.append("recipient", JSON.stringify({ id: senderId }));
 
-      // ✅ Step 5: SEND IMAGE
-      const finalUrl = isWorking
-        ? aiUrl
-        : `https://picsum.photos/512?random=${Date.now()}`;
-
-      await sendMessage(senderId, {
+      form.append("message", JSON.stringify({
         attachment: {
           type: "image",
-          payload: {
-            url: finalUrl,
-            is_reusable: true
-          }
+          payload: {}
         }
-      }, pageAccessToken);
+      }));
 
-      console.log("✅ Image sent:", finalUrl);
+      form.append("filedata", imageBuffer, {
+        filename: "image.jpg",
+        contentType: "image/jpeg"
+      });
+
+      await axios.post(
+        `https://graph.facebook.com/v18.0/me/messages?access_token=${pageAccessToken}`,
+        form,
+        {
+          headers: form.getHeaders(),
+          timeout: 20000
+        }
+      );
+
+      console.log("✅ Image sent via upload");
 
     } catch (err) {
 
       console.error("❌ ERROR:", err.response?.data || err.message);
 
-      // 🔥 ultimate fallback (never fail)
-      await sendMessage(senderId, {
-        attachment: {
-          type: "image",
-          payload: {
-            url: `https://picsum.photos/512?random=${Date.now()}`
-          }
-        }
-      }, pageAccessToken);
+      // 🔥 fallback (still upload)
+      try {
 
+        const fallback = await axios.get(
+          `https://picsum.photos/512`,
+          { responseType: "arraybuffer" }
+        );
+
+        const form = new FormData();
+
+        form.append("recipient", JSON.stringify({ id: senderId }));
+        form.append("message", JSON.stringify({
+          attachment: { type: "image", payload: {} }
+        }));
+        form.append("filedata", Buffer.from(fallback.data), {
+          filename: "fallback.jpg",
+          contentType: "image/jpeg"
+        });
+
+        await axios.post(
+          `https://graph.facebook.com/v18.0/me/messages?access_token=${pageAccessToken}`,
+          form,
+          { headers: form.getHeaders() }
+        );
+
+        console.log("✅ Fallback sent");
+
+      } catch (e) {
+        console.log("❌ Even fallback failed");
+      }
     }
   }
 };
