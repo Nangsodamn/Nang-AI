@@ -7,30 +7,40 @@ module.exports = {
   async execute(senderId, args, pageAccessToken) {
 
     const prompt = args.join(" ");
-
-    if (!prompt) {
-      return;
-    }
+    if (!prompt) return;
 
     try {
 
-      // ✅ Step 1: generate AI image URL
+      // 🧠 Step 1: create AI URL
       const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Date.now()}`;
+      console.log("🖼️ URL:", imageUrl);
 
-      console.log("🖼️ Fetching:", imageUrl);
+      // 🧠 Step 2: WAIT (VERY IMPORTANT)
+      await new Promise(r => setTimeout(r, 8000));
 
-      // ✅ Step 2: download image buffer
+      // 🧠 Step 3: download image
       const response = await axios.get(imageUrl, {
         responseType: "arraybuffer",
         timeout: 15000
       });
 
-      const imageBuffer = Buffer.from(response.data);
+      // 🧠 Step 4: validate image
+      const contentType = response.headers["content-type"];
+      console.log("📦 Content-Type:", contentType);
 
-      // ✅ Step 3: send via upload (NOT URL)
+      if (!contentType || !contentType.startsWith("image")) {
+        throw new Error("Not an image!");
+      }
+
+      const buffer = Buffer.from(response.data);
+
+      // 🧠 Step 5: upload to Facebook
       const form = new FormData();
 
       form.append("recipient", JSON.stringify({ id: senderId }));
+
+      // ✅ VERY IMPORTANT
+      form.append("messaging_type", "RESPONSE");
 
       form.append("message", JSON.stringify({
         attachment: {
@@ -39,7 +49,7 @@ module.exports = {
         }
       }));
 
-      form.append("filedata", imageBuffer, {
+      form.append("filedata", buffer, {
         filename: "image.jpg",
         contentType: "image/jpeg"
       });
@@ -48,47 +58,14 @@ module.exports = {
         `https://graph.facebook.com/v18.0/me/messages?access_token=${pageAccessToken}`,
         form,
         {
-          headers: form.getHeaders(),
-          timeout: 20000
+          headers: form.getHeaders()
         }
       );
 
-      console.log("✅ Image sent via upload");
+      console.log("✅ IMAGE SENT");
 
     } catch (err) {
-
       console.error("❌ ERROR:", err.response?.data || err.message);
-
-      // 🔥 fallback (still upload)
-      try {
-
-        const fallback = await axios.get(
-          `https://picsum.photos/512`,
-          { responseType: "arraybuffer" }
-        );
-
-        const form = new FormData();
-
-        form.append("recipient", JSON.stringify({ id: senderId }));
-        form.append("message", JSON.stringify({
-          attachment: { type: "image", payload: {} }
-        }));
-        form.append("filedata", Buffer.from(fallback.data), {
-          filename: "fallback.jpg",
-          contentType: "image/jpeg"
-        });
-
-        await axios.post(
-          `https://graph.facebook.com/v18.0/me/messages?access_token=${pageAccessToken}`,
-          form,
-          { headers: form.getHeaders() }
-        );
-
-        console.log("✅ Fallback sent");
-
-      } catch (e) {
-        console.log("❌ Even fallback failed");
-      }
     }
   }
 };
