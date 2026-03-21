@@ -1,5 +1,4 @@
 const axios = require("axios");
-const FormData = require("form-data");
 const { sendMessage } = require("../handles/sendMessage");
 
 module.exports = {
@@ -12,6 +11,7 @@ module.exports = {
 
     const prompt = args.join(" ");
 
+    // ❌ no prompt
     if (!prompt) {
       return sendMessage(senderId, {
         text: "⚠️ Example:\nimg cute frog"
@@ -20,49 +20,30 @@ module.exports = {
 
     try {
 
+      // ⏳ loading message
       await sendMessage(senderId, {
         text: "🎨 Generating image..."
       }, pageAccessToken);
 
-      // ✅ NEW (more stable API)
+      // ✅ generate image URL
       const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Date.now()}`;
 
       console.log("🖼️ Image URL:", imageUrl);
 
-      // ✅ download image (buffer)
-      const response = await axios({
-        url: imageUrl,
-        method: "GET",
-        responseType: "arraybuffer",
-        timeout: 20000 // prevent hanging
-      });
-
-      // ❌ if no data
-      if (!response.data) throw new Error("No image data");
-
-      const form = new FormData();
-
-      form.append("recipient", JSON.stringify({ id: senderId }));
-
-      form.append("message", JSON.stringify({
-        attachment: {
-          type: "image",
-          payload: {}
-        }
-      }));
-
-      form.append("filedata", Buffer.from(response.data), {
-        filename: "image.jpg",
-        contentType: "image/jpeg"
-      });
-
-      // ✅ send to Facebook
+      // ✅ send image directly (FIXED PART)
       await axios.post(
         `https://graph.facebook.com/v18.0/me/messages?access_token=${pageAccessToken}`,
-        form,
         {
-          headers: form.getHeaders(),
-          timeout: 20000
+          recipient: { id: senderId },
+          message: {
+            attachment: {
+              type: "image",
+              payload: {
+                url: imageUrl,
+                is_reusable: true
+              }
+            }
+          }
         }
       );
 
