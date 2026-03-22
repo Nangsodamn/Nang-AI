@@ -1,67 +1,78 @@
 const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
 
 module.exports = {
   name: "img",
-  description: "Generate AI image",
+  description: "Generate AI image (Replicate)",
   usage: "img <prompt>",
-  category: "AI 🤖",
+  category: "AI",
 
   async execute({ api, event, args }) {
     const prompt = args.join(" ");
     if (!prompt) {
-      return api.sendMessage("❌ Enter prompt", event.threadID);
+      return api.sendMessage("⚠️ Enter a prompt.", event.threadID);
     }
 
-    const filePath = path.join(__dirname, "temp.jpg");
+    api.sendMessage("🎨 Generating image...", event.threadID);
 
     try {
-      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Date.now()}`;
+      // 🔥 STEP 1: Create prediction
+      const create = await axios.post(
+        "https://api.replicate.com/v1/predictions",
+        {
+          version: "db21e45f7c1e3c1f1b0c8d45d7b2f2c5c6a2f1f1c7b6e7e6e1f2a3b4c5d6e7f", // SDXL model
+          input: {
+            prompt: prompt
+          }
+        },
+        {
+          headers: {
+            Authorization: `Token ${process.env.REPLICATE_API_KEY}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
 
-      console.log("Generating:", url);
+      const statusUrl = create.data.urls.get;
 
-      // ✅ WAIT (IMPORTANT)
-      await new Promise(res => setTimeout(res, 5000));
+      // 🔁 STEP 2: Wait until finished
+      let imageUrl;
+      while (true) {
+        const check = await axios.get(statusUrl, {
+          headers: {
+            Authorization: `Token ${process.env.REPLICATE_API_KEY}`
+          }
+        });
 
-      // ✅ DOWNLOAD IMAGE
-      const response = await axios({
-        url,
-        method: "GET",
-        responseType: "stream",
-        timeout: 15000
+        if (check.data.status === "succeeded") {
+          imageUrl = check.data.output[0];
+          break;
+        }
+
+        if (check.data.status === "failed") {
+          throw new Error("Image generation failed");
+        }
+
+        await new Promise(r => setTimeout(r, 2000));
+      }
+
+      // 📥 STEP 3: Convert to stream (VERY IMPORTANT)
+      const img = await axios.get(imageUrl, {
+        responseType: "stream"
       });
 
-      // ✅ SAVE FILE
-      const writer = fs.createWriteStream(filePath);
-      response.data.pipe(writer);
-
-      await new Promise((resolve, reject) => {
-        writer.on("finish", resolve);
-        writer.on("error", reject);
-      });
-
-      // ✅ SEND FILE (THIS IS THE FIX)
-      return api.sendMessage({
-        attachment: fs.createReadStream(filePath)
-      }, event.threadID, () => {
-        fs.unlinkSync(filePath); // delete after send
-      });
+      // 📤 STEP 4: Send to Facebook
+      api.sendMessage({
+        body: `🖼️ ${prompt}`,
+        attachment: img.data
+      }, event.threadID);
 
     } catch (err) {
-      console.log("AI FAILED:", err.message);
+      console.error("REPLICATE ERROR:", err.message);
 
-      // ✅ FALLBACK (ALWAYS WORKS)
-      const fallback = `https://picsum.photos/512?random=${Date.now()}`;
-
-      return api.sendMessage({
-        body: "⚠️ AI failed, fallback image",
-        attachment: await axios({
-          url: fallback,
-          method: "GET",
-          responseType: "stream"
-        }).then(res => res.data)
-      }, event.threadID);
+      api.sendMessage(
+        "❌ Failed to generate image. Try again.",
+        event.threadID
+      );
     }
   }
 };
