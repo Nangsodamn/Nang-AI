@@ -1,4 +1,6 @@
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
 module.exports = {
   name: "img",
@@ -9,46 +11,51 @@ module.exports = {
   async execute({ api, event, args }) {
     const prompt = args.join(" ");
     if (!prompt) {
-      return api.sendMessage("❌ Please provide a prompt", event.threadID);
+      return api.sendMessage("❌ Enter prompt", event.threadID);
     }
 
+    const filePath = path.join(__dirname, "temp.jpg");
+
     try {
-      // ✅ STEP 1: Generate Pollinations URL
-      const polliURL = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Date.now()}`;
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Date.now()}`;
 
-      console.log("🧠 Generating:", polliURL);
+      console.log("Generating:", url);
 
-      // ✅ STEP 2: WAIT (VERY IMPORTANT)
-      await new Promise(res => setTimeout(res, 4000));
+      // ✅ WAIT (IMPORTANT)
+      await new Promise(res => setTimeout(res, 5000));
 
-      // ✅ STEP 3: CHECK IMAGE VALID
-      const check = await axios.get(polliURL, {
-        responseType: "arraybuffer",
-        timeout: 10000
+      // ✅ DOWNLOAD IMAGE
+      const response = await axios({
+        url,
+        method: "GET",
+        responseType: "stream",
+        timeout: 15000
       });
 
-      // if small = broken
-      if (!check.data || check.data.length < 1000) {
-        throw new Error("Image too small / invalid");
-      }
+      // ✅ SAVE FILE
+      const writer = fs.createWriteStream(filePath);
+      response.data.pipe(writer);
 
-      // ✅ STEP 4: SEND TO FACEBOOK
+      await new Promise((resolve, reject) => {
+        writer.on("finish", resolve);
+        writer.on("error", reject);
+      });
+
+      // ✅ SEND FILE (THIS IS THE FIX)
       return api.sendMessage({
-        attachment: await axios({
-          url: polliURL,
-          method: "GET",
-          responseType: "stream"
-        }).then(res => res.data)
-      }, event.threadID);
+        attachment: fs.createReadStream(filePath)
+      }, event.threadID, () => {
+        fs.unlinkSync(filePath); // delete after send
+      });
 
     } catch (err) {
-      console.log("❌ Pollinations failed, using fallback...");
+      console.log("AI FAILED:", err.message);
 
-      // ✅ FALLBACK (100% SAFE)
+      // ✅ FALLBACK (ALWAYS WORKS)
       const fallback = `https://picsum.photos/512?random=${Date.now()}`;
 
       return api.sendMessage({
-        body: "⚠️ AI failed, showing random image instead",
+        body: "⚠️ AI failed, fallback image",
         attachment: await axios({
           url: fallback,
           method: "GET",
