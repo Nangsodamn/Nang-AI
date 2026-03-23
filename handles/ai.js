@@ -1,5 +1,5 @@
 const axios = require("axios");
-
+// force redeploy
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 console.log("GROQ KEY CHECK:", process.env.GROQ_API_KEY);
 
