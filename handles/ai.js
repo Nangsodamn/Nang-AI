@@ -1,6 +1,7 @@
 const axios = require("axios");
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
+console.log("GROQ KEY CHECK:", process.env.GROQ_API_KEY);
 
 async function askAI(prompt) {
   try {
