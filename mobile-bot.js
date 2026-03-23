@@ -63,12 +63,15 @@ app.post("/webhook", async (req, res) => {
 
             // ✅ DEFAULT
             else {
-              const { sendMessage } = require("./handles/sendMessage");
+  const askAI = require("./handles/ai");
+  const { sendMessage } = require("./handles/sendMessage");
 
-              await sendMessage(senderId, {
-                text: "🤖 Try:\n• img frog\n• ghz on"
-              }, pageAccessToken);
-            }
+  const reply = await askAI(text);
+
+  await sendMessage(senderId, {
+    text: reply
+  }, pageAccessToken);
+        }
 
           }
 
